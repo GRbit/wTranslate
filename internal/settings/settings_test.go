@@ -1,0 +1,140 @@
+package settings
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestDefaultSettings(t *testing.T) {
+	d := DefaultSettings()
+	if d.BaseURL != DefaultBaseURL {
+		t.Errorf("BaseURL = %q, want %q", d.BaseURL, DefaultBaseURL)
+	}
+	if d.APIKey != "" {
+		t.Errorf("APIKey = %q, want empty", d.APIKey)
+	}
+	if !d.DefaultToAuto {
+		t.Error("DefaultToAuto should be true by default")
+	}
+	if d.LiveTranslation {
+		t.Error("LiveTranslation should be false by default")
+	}
+	if d.Shortcut != ShortcutCtrlEnter {
+		t.Errorf("Shortcut = %q, want %q", d.Shortcut, ShortcutCtrlEnter)
+	}
+}
+
+func TestNewServiceCreatesDefaultsWhenAbsent(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("NewServiceWithDir: %v", err)
+	}
+	got := s.GetSettings()
+	if got.BaseURL != DefaultBaseURL || !got.DefaultToAuto {
+		t.Errorf("defaults not applied: %+v", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, configFile)); err != nil {
+		t.Errorf("settings file not written on first run: %v", err)
+	}
+}
+
+func TestSaveThenReload(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("NewServiceWithDir: %v", err)
+	}
+	want := Settings{
+		BaseURL:         "https://lt.example.com",
+		APIKey:          "secret",
+		LiveTranslation: true,
+		Shortcut:        ShortcutEnter,
+		DefaultToAuto:   false,
+		LastSourceLang:  "fr",
+		LastTargetLang:  "ru",
+		Debug:           true,
+	}
+	if err := s.SaveSettings(want); err != nil {
+		t.Fatalf("SaveSettings: %v", err)
+	}
+
+	s2, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	got := s2.GetSettings()
+	if got != want {
+		t.Errorf("round-trip mismatch:\n got  %+v\n want %+v", got, want)
+	}
+}
+
+func TestSaveNormalizesInvalidValues(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("NewServiceWithDir: %v", err)
+	}
+	if err := s.SaveSettings(Settings{
+		BaseURL:        "  https://lt.example.com/  ",
+		Shortcut:       "bogus",
+		LastTargetLang: "",
+	}); err != nil {
+		t.Fatalf("SaveSettings: %v", err)
+	}
+	got := s.GetSettings()
+	if got.BaseURL != "https://lt.example.com" {
+		t.Errorf("BaseURL not trimmed: %q", got.BaseURL)
+	}
+	if got.Shortcut != ShortcutCtrlEnter {
+		t.Errorf("invalid Shortcut not defaulted: %q", got.Shortcut)
+	}
+	if got.LastTargetLang != "en" {
+		t.Errorf("empty LastTargetLang not defaulted: %q", got.LastTargetLang)
+	}
+}
+
+func TestCorruptFileFails(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, configFile), []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewServiceWithDir(dir); err == nil {
+		t.Error("expected error loading corrupt settings, got nil")
+	}
+}
+
+func TestJSONTagsRoundTrip(t *testing.T) {
+	s := Settings{BaseURL: "u", APIKey: "k", LiveTranslation: true, Shortcut: "enter",
+		DefaultToAuto: true, LastSourceLang: "a", LastTargetLang: "b", Debug: true}
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"baseUrl", "apiKey", "liveTranslation", "shortcut", "defaultToAuto", "lastSourceLang", "lastTargetLang", "debug"} {
+		if _, ok := m[k]; !ok {
+			t.Errorf("missing camelCase key %q in JSON: %v", k, string(data))
+		}
+	}
+}
+
+func TestEnvDebug(t *testing.T) {
+	for _, v := range []string{"1", "true", "TRUE", "yes", "on"} {
+		t.Setenv(debugEnv, v)
+		if !EnvDebug() {
+			t.Errorf("EnvDebug()=false for %q", v)
+		}
+	}
+	for _, v := range []string{"", "0", "false", "no", "off", "maybe"} {
+		t.Setenv(debugEnv, v)
+		if EnvDebug() {
+			t.Errorf("EnvDebug()=true for %q", v)
+		}
+	}
+}
