@@ -39,6 +39,7 @@ type Settings struct {
 	DefaultToAuto   bool   `json:"defaultToAuto"`
 	LastSourceLang  string `json:"lastSourceLang"`
 	LastTargetLang  string `json:"lastTargetLang"`
+	AutoCopy        bool   `json:"autoCopy"`
 	Debug           bool   `json:"debug"`
 }
 
@@ -53,6 +54,7 @@ func DefaultSettings() Settings {
 		DefaultToAuto:   true,
 		LastSourceLang:  "en",
 		LastTargetLang:  "en",
+		AutoCopy:        false,
 		Debug:           false,
 	}
 }
@@ -200,8 +202,8 @@ func (s *Service) SaveSettings(next Settings) error {
 	defer s.mu.Unlock()
 	s.cur = normalized
 	if DebugEnabled(normalized) {
-		log.Printf("[settings] saving to %s: baseURL=%s apiKey=%s liveTranslation=%v shortcut=%s defaultToAuto=%v debug=%v",
-			s.path, normalized.BaseURL, apiKeyLabel(normalized.APIKey), normalized.LiveTranslation, normalized.Shortcut, normalized.DefaultToAuto, normalized.Debug)
+		log.Printf("[settings] saving to %s: baseURL=%s apiKey=%s liveTranslation=%v shortcut=%s defaultToAuto=%v autoCopy=%v debug=%v",
+			s.path, normalized.BaseURL, apiKeyLabel(normalized.APIKey), normalized.LiveTranslation, normalized.Shortcut, normalized.DefaultToAuto, normalized.AutoCopy, normalized.Debug)
 	}
 	return s.writeLocked(normalized)
 }

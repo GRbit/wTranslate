@@ -109,6 +109,14 @@
           </select>
         </div>
 
+        <div class="row">
+            <label class="toggle">
+                <input type="checkbox" bind:checked={form.autoCopy} />
+                <span>Copy to clipboard after translation with button/hotkey</span>
+            </label>
+        </div>
+        <p class="muted">Only works when using the Translate button or hotkeys.</p>
+
         <label class="toggle">
           <input type="checkbox" bind:checked={form.defaultToAuto} />
           <span>Default to Auto</span>

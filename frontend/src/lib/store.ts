@@ -20,6 +20,7 @@ export function defaultSettings(): Settings {
     lastSourceLang: 'en',
     lastTargetLang: 'en',
     debug: false,
+    autoCopy: false,
   };
 }
 

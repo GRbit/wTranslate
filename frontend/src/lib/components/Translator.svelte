@@ -68,12 +68,12 @@
         if ($settings.shortcut === 'ctrl_enter') {
             if (withCtrl) {
                 e.preventDefault();
-                void runTranslate();
+                void runTranslate(true);
             }
         } else {
             if (!withCtrl) {
                 e.preventDefault();
-                void runTranslate();
+                void runTranslate(true);
             }
         }
     }
@@ -134,7 +134,7 @@
   </section>
 
   <section class="bottombar">
-    <button class="primary" on:click={() => runTranslate()} disabled={$isTranslating}>
+    <button class="primary" on:click={() => runTranslate(true)} disabled={$isTranslating}>
       {#if $isTranslating}Translating…{:else}Translate{/if}
     </button>
     <span class="counter" class:over={$overLimit}>{$charCount}/{CHAR_LIMIT}</span>

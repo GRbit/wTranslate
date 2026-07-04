@@ -89,6 +89,7 @@ export namespace settings {
 	    defaultToAuto: boolean;
 	    lastSourceLang: string;
 	    lastTargetLang: string;
+	    autoCopy: boolean;
 	    debug: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -104,6 +105,7 @@ export namespace settings {
 	        this.defaultToAuto = source["defaultToAuto"];
 	        this.lastSourceLang = source["lastSourceLang"];
 	        this.lastTargetLang = source["lastTargetLang"];
+	        this.autoCopy = source["autoCopy"];
 	        this.debug = source["debug"];
 	    }
 	}

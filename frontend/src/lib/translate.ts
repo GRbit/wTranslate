@@ -3,15 +3,15 @@ import type { Settings } from './types';
 import * as st from './store';
 import { Translate, SaveSettings, errorMessage } from './api';
 
-// Live translation timing (SPEC §3.2.1: debounce 500–800ms, throttle 1–2s).
+// Live translation timing (SPEC §3.2.1: debounce 500-800ms, throttle 1–2s).
 const DEBOUNCE_MS = 600;
-const THROTTLE_MS = 1500;
+const THROTTLE_MS = 5000;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let throttleLast = 0;
 
 /** Translate the current source text immediately (SPEC §2.1, §4.2). */
-export async function runTranslate(): Promise<void> {
+export async function runTranslate(manual: boolean = false): Promise<void> {
   const text = get(st.sourceText);
   if (!text.trim()) {
     st.translatedText.set('');
@@ -26,6 +26,9 @@ export async function runTranslate(): Promise<void> {
     const res = await Translate({ q: text, source, target });
     st.translatedText.set(res.translatedText ?? '');
     st.detected.set(res.detectedLanguage ?? null);
+    if (manual && get(st.settings).autoCopy && res.translatedText) {
+        void copyTranslation();
+    }
   } catch (e) {
     // SPEC §7.4: keep language state, clear output, show error.
     st.showToast('error', errorMessage(e));
@@ -46,11 +49,11 @@ export function scheduleLive(): void {
     if (wait > 0) {
       setTimeout(() => {
         throttleLast = Date.now();
-        void runTranslate();
+        void runTranslate(false);
       }, wait);
     } else {
       throttleLast = now;
-      void runTranslate();
+      void runTranslate(false);
     }
   }, DEBOUNCE_MS);
 }

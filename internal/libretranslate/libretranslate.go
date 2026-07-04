@@ -226,6 +226,7 @@ func (s *Service) Translate(r TranslateRequest) (TranslateResponse, error) {
 		return TranslateResponse{}, fmt.Errorf("empty translation in response (HTTP %d): %s", resp.StatusCode, snippet(respBody))
 	}
 	s.logf("POST %s: translatedLen=%d detected=%v", fullURL, len(out.TranslatedText), detectedLabel(out.DetectedLanguage))
+	s.logf("resp %v", string(respBody))
 	return out, nil
 }
 
