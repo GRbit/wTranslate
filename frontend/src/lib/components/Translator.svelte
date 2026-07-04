@@ -20,6 +20,7 @@
     scheduleLive,
     swap,
     clearAll,
+    pasteToSource,
     copyTranslation,
     persistSettingsDebounced,
   } from '../translate';
@@ -44,18 +45,37 @@
 
   // SPEC §3.2.2: keyboard shortcut handling on the source textarea.
   function onKeydown(e: KeyboardEvent): void {
-    if (e.key !== 'Enter') return;
-    const withCtrl = e.ctrlKey || e.metaKey;
-    if ($settings.shortcut === 'ctrl_enter') {
-      if (withCtrl) {
-        e.preventDefault();
-        void runTranslate();
-      }
-    } else {
-      if (!withCtrl) {
-        e.preventDefault();
-        void runTranslate();
-      }
+        const withCtrl = e.ctrlKey || e.metaKey;
+
+    // Ctrl+S: Swap languages
+    if (withCtrl && e.key.toLowerCase() === 's') {
+        e.preventDefault(); // avoid default browser save action
+        if (!$swapDisabled) {
+            swap();
+        }
+        return;
+    }
+
+    // Ctrl+T: Copy translated text
+    if (withCtrl && e.key.toLowerCase() === 't') {
+        e.preventDefault(); // avoid default new tab open
+        void copyTranslation();
+        return;
+    }
+
+    // Translate on hotkey press
+    if (e.key === 'Enter') {
+        if ($settings.shortcut === 'ctrl_enter') {
+            if (withCtrl) {
+                e.preventDefault();
+                void runTranslate();
+            }
+        } else {
+            if (!withCtrl) {
+                e.preventDefault();
+                void runTranslate();
+            }
+        }
     }
   }
 </script>
@@ -96,6 +116,7 @@
       ></textarea>
       <div class="pane-foot">
         <button class="ghost" on:click={clearAll} title="Clear text">🧹 Clear</button>
+        <button class="ghost" on:click={pasteToSource} title="Paste">📋 Paste</button>
       </div>
     </div>
 

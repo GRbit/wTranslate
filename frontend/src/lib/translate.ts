@@ -90,6 +90,22 @@ export function clearAll(): void {
   st.detected.set(null);
 }
 
+/** Paste buffer into input field */
+export async function pasteToSource(): Promise<void> {
+    try {
+        const { ClipboardGetText } = await import('../../wailsjs/runtime/runtime');
+        const text = await ClipboardGetText();
+
+        if (text) {
+            st.sourceText.set(text);
+            scheduleLive();
+        }
+    } catch (e) {
+        st.showToast('error', 'Could not paste from clipboard');
+    }
+}
+
+
 /** Copy the whole translation to the clipboard (SPEC §6.2). */
 export async function copyTranslation(): Promise<void> {
   const text = get(st.translatedText);
