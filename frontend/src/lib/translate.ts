@@ -10,22 +10,48 @@ const THROTTLE_MS = 5000;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let throttleLast = 0;
 
+// Var to cache last success attempt
+let lastAttempt = {
+    text: '',
+    source: '',
+    target: ''
+};
+
+
 /** Translate the current source text immediately (SPEC §2.1, §4.2). */
 export async function runTranslate(manual: boolean = false): Promise<void> {
   const text = get(st.sourceText);
+  const source = get(st.sourceLang);
+  const target = get(st.targetLang);
+
+  const isRedundant =
+    text === lastAttempt.text &&
+    source === lastAttempt.source &&
+    target === lastAttempt.target;
+
   if (!text.trim()) {
     st.translatedText.set('');
     st.detected.set(null);
+    lastAttempt = { text: '', source: '', target: '' }; // refresh cache
     return;
   }
-  const source = get(st.sourceLang);
-  const target = get(st.targetLang);
+
+  if (isRedundant) {
+    // If it's a manual call, respect auto-copy option
+    if (manual && get(st.settings).autoCopy) {
+        void copyTranslation();
+    }
+    return; // Exit with no request
+  }
+
+
   st.isTranslating.set(true);
   st.clearToast();
   try {
     const res = await Translate({ q: text, source, target });
     st.translatedText.set(res.translatedText ?? '');
     st.detected.set(res.detectedLanguage ?? null);
+    lastAttempt = { text, source, target };
     if (manual && get(st.settings).autoCopy && res.translatedText) {
         void copyTranslation();
     }
@@ -34,6 +60,7 @@ export async function runTranslate(manual: boolean = false): Promise<void> {
     st.showToast('error', errorMessage(e));
     st.translatedText.set('');
     st.detected.set(null);
+    lastAttempt = { text: '', source: '', target: '' }; // drop cache to clear retry on error
   } finally {
     st.isTranslating.set(false);
   }
