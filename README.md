@@ -1,8 +1,17 @@
 # LibreTranslate Translator
 
-Cross-platform desktop translator built with **Go + Wails v2.12** and the
-**LibreTranslate** API. See [`SPEC.md`](./SPEC.md) for the authoritative
-specification and [`DECISIONS.md`](./DECISIONS.md) for locked-in design choices.
+Cross-platform desktop translator built with **Go + Wails v2.12** to use 
+**LibreTranslate** API for text translation. Has simple interface, little settings and a few hotkeys. Build it for my
+self-hosted instance of LibreTranslate because existing apps were slow and buggy.
+
+Contributions are welcome!
+
+## Basic usage:
+
+Insert text, hit Ctrl+Enter to translte. If "auto-copy" option is enabled, result will be copied to paste buffer instantly.
+
+![App screenshot](images/app.png)
+![Settings screenshot](images/settings.png)
 
 ## Stack
 - Backend: Go 1.23+, Wails v2.12. `internal/settings` (config store) and
