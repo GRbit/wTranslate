@@ -6,6 +6,10 @@ export function GetSettings() {
   return window['go']['settings']['Service']['GetSettings']();
 }
 
+export function LoadWarning() {
+  return window['go']['settings']['Service']['LoadWarning']();
+}
+
 export function SaveSettings(arg1) {
   return window['go']['settings']['Service']['SaveSettings'](arg1);
 }

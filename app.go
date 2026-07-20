@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"translator/internal/libretranslate"
@@ -16,12 +17,16 @@ type App struct {
 	translator *libretranslate.Service
 }
 
-// NewApp constructs the App and its services. A failure to initialise the
-// settings store is fatal: there is no useful state without it.
+// NewApp constructs the App and its services. If the settings store cannot be
+// initialised (e.g. the config directory can't be resolved), the app still
+// launches with in-memory defaults rather than crashing; the failure is
+// surfaced to the UI via LoadWarning (BUGS #6).
 func NewApp() *App {
 	settingsSvc, err := settings.NewService()
 	if err != nil {
-		log.Fatalf("failed to initialise settings: %v", err)
+		log.Printf("[app] settings store unavailable (%v); continuing with in-memory defaults", err)
+		settingsSvc = settings.NewInMemoryService(
+			fmt.Sprintf("Settings could not be loaded (%v); changes won't be saved this session.", err))
 	}
 	translatorSvc := libretranslate.NewService(settingsSvc)
 	return &App{

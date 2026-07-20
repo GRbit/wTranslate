@@ -106,9 +106,10 @@ func (s Settings) normalize() Settings {
 // It implements the SettingsProvider interface expected by the translator
 // package via its GetSettings method.
 type Service struct {
-	path string
-	mu   sync.RWMutex
-	cur  Settings
+	path     string
+	mu       sync.RWMutex
+	cur      Settings
+	loadWarn string // non-fatal warning recorded during load (surfaced in the UI)
 }
 
 // NewService creates a Service backed by the OS config directory and loads
@@ -132,6 +133,23 @@ func NewServiceWithDir(dir string) (*Service, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// NewInMemoryService returns a Service holding default settings that never
+// touches disk (empty path). It is the last-resort fallback used when the
+// config directory cannot even be determined, so the app still launches; the
+// given warning is reported to the UI via LoadWarning.
+func NewInMemoryService(warning string) *Service {
+	return &Service{cur: DefaultSettings().normalize(), loadWarn: warning}
+}
+
+// LoadWarning returns a non-fatal warning recorded while loading settings
+// (e.g. a corrupt file was reset to defaults), or "" if the load was clean.
+// Bound to the UI so it can be surfaced once at startup.
+func (s *Service) LoadWarning() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.loadWarn
 }
 
 // configDir resolves the directory holding settings.json, honouring the
@@ -167,11 +185,36 @@ func (s *Service) load() error {
 			}
 			return s.writeLocked(cur)
 		}
-		return fmt.Errorf("read settings: %w", err)
+		// Unreadable for some other reason (e.g. permissions): launch with
+		// defaults in memory rather than refusing to start. Don't try to write
+		// (the same condition would likely block that too).
+		cur := DefaultSettings().normalize()
+		warn := fmt.Sprintf("could not read settings file %q (%v); using defaults for this session", s.path, err)
+		s.mu.Lock()
+		s.cur = cur
+		s.loadWarn = warn
+		s.mu.Unlock()
+		log.Printf("[settings] %s", warn)
+		return nil
 	}
 	var loaded Settings
 	if err := json.Unmarshal(data, &loaded); err != nil {
-		return fmt.Errorf("parse settings %q: %w", s.path, err)
+		// Corrupt config must not brick the app: back up the bad file, reset to
+		// defaults, and record a warning for the UI (SPEC §9, BUGS #6).
+		cur := DefaultSettings().normalize()
+		backup := s.path + ".corrupt"
+		var warn string
+		if renameErr := os.Rename(s.path, backup); renameErr != nil {
+			warn = fmt.Sprintf("settings file %q was unreadable (%v) and could not be backed up (%v); reset to defaults", s.path, err, renameErr)
+		} else {
+			warn = fmt.Sprintf("settings file was unreadable (%v); backed up to %q and reset to defaults", err, backup)
+		}
+		s.mu.Lock()
+		s.cur = cur
+		s.loadWarn = warn
+		s.mu.Unlock()
+		log.Printf("[settings] %s", warn)
+		return s.writeLocked(cur)
 	}
 	loaded = loaded.normalize()
 	s.mu.Lock()
@@ -248,6 +291,9 @@ func apiKeyLabel(key string) string {
 }
 
 func (s *Service) writeLocked(cur Settings) error {
+	if s.path == "" {
+		return nil // in-memory fallback: nothing to persist
+	}
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
 	}

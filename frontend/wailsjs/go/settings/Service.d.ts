@@ -4,6 +4,8 @@ import {settings} from '../models';
 
 export function GetSettings():Promise<settings.Settings>;
 
+export function LoadWarning():Promise<string>;
+
 export function SaveSettings(arg1:settings.Settings):Promise<void>;
 
 export function Snapshot():Promise<string>;

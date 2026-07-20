@@ -1,12 +1,21 @@
 import { get } from 'svelte/store';
 import * as st from './store';
-import { GetSettings, GetLanguages, GetFrontendSettings, errorMessage } from './api';
+import { GetSettings, GetLanguages, GetFrontendSettings, LoadWarning, errorMessage } from './api';
 
 /**
  * Load settings from the backend and initialise the UI accordingly
  * (SPEC §9.3: apply Default-to-Auto / last selected languages).
  */
 export async function initApp(): Promise<void> {
+  // Surface any non-fatal warning recorded while the backend loaded settings
+  // (e.g. a corrupt config was reset to defaults). SPEC §9 / BUGS #6.
+  try {
+    const warn = await LoadWarning();
+    if (warn) st.showToast('error', warn, 0);
+  } catch {
+    // Non-fatal; ignore.
+  }
+
   try {
     const s = await GetSettings();
     st.settings.set(s);

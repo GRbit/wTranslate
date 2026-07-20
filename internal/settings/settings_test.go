@@ -166,13 +166,51 @@ func TestUpdateSettingsRejectsBadPatch(t *testing.T) {
 	}
 }
 
-func TestCorruptFileFails(t *testing.T) {
+func TestCorruptFileFallsBackToDefaults(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, configFile), []byte("{not json"), 0o600); err != nil {
+	path := filepath.Join(dir, configFile)
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewServiceWithDir(dir); err == nil {
-		t.Error("expected error loading corrupt settings, got nil")
+
+	s, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("NewServiceWithDir should not fail on corrupt file: %v", err)
+	}
+	if got := s.GetSettings(); got.BaseURL != DefaultBaseURL || !got.DefaultToAuto {
+		t.Errorf("expected defaults after corrupt load, got %+v", got)
+	}
+	if s.LoadWarning() == "" {
+		t.Error("expected a non-empty load warning after corrupt file")
+	}
+	if _, err := os.Stat(path + ".corrupt"); err != nil {
+		t.Errorf("corrupt file not backed up to %s: %v", path+".corrupt", err)
+	}
+
+	// The file at path is now valid defaults, so a fresh load is clean.
+	s2, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("reload after reset: %v", err)
+	}
+	if s2.LoadWarning() != "" {
+		t.Errorf("second load should be clean, got warning: %q", s2.LoadWarning())
+	}
+}
+
+func TestInMemoryServiceNeverPersists(t *testing.T) {
+	s := NewInMemoryService("boom")
+	if s.LoadWarning() != "boom" {
+		t.Errorf("LoadWarning = %q, want %q", s.LoadWarning(), "boom")
+	}
+	if got := s.GetSettings().BaseURL; got != DefaultBaseURL {
+		t.Errorf("in-memory service should hold defaults, got BaseURL=%q", got)
+	}
+	// SaveSettings must not panic or error despite having no path.
+	if err := s.SaveSettings(Settings{BaseURL: "https://x.example"}); err != nil {
+		t.Errorf("SaveSettings on in-memory service: %v", err)
+	}
+	if got := s.GetSettings().BaseURL; got != "https://x.example" {
+		t.Errorf("in-memory update not reflected in memory: %q", got)
 	}
 }
 
