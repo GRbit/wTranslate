@@ -27,7 +27,7 @@
     const prevUrl = $settings.baseUrl;
     // Send only the fields this form edits; the backend merges them, so the
     // language selection (and anything else) is never overwritten from here.
-    await updateSettings({
+    const ok = await updateSettings({
       baseUrl: form.baseUrl,
       apiKey: form.apiKey,
       liveTranslation: form.liveTranslation,
@@ -36,6 +36,7 @@
       autoCopy: form.autoCopy,
       debug: form.debug,
     });
+    if (!ok) return; // save failed (toast already shown); keep the modal open
     // $settings now holds the merged, normalised result from the backend.
     if ($settings.baseUrl !== prevUrl) {
       // Re-fetch languages and the instance's character limit on URL change.

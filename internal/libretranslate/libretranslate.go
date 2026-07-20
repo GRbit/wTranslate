@@ -221,7 +221,9 @@ func (s *Service) GetFrontendSettings() (FrontendSettings, error) {
 	if err := json.Unmarshal(body, &fs); err != nil {
 		return FrontendSettings{}, fmt.Errorf("unexpected /frontend/settings response (HTTP %d): %s", resp.StatusCode, snippet(body))
 	}
-	s.logf("GET %s: charLimit=%d", fullURL, fs.CharLimit)
+	// Always log the discovered limit (non-sensitive, fires only at startup and
+	// on Base-URL change) so it's visible without turning on debug.
+	log.Printf("[libretranslate] GET %s: charLimit=%d", fullURL, fs.CharLimit)
 	return fs, nil
 }
 
