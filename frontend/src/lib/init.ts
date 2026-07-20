@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import * as st from './store';
-import { GetSettings, GetLanguages, errorMessage } from './api';
+import { GetSettings, GetLanguages, GetFrontendSettings, errorMessage } from './api';
 
 /**
  * Load settings from the backend and initialise the UI accordingly
@@ -20,7 +20,22 @@ export async function initApp(): Promise<void> {
   } catch (e) {
     st.showToast('error', 'Could not load settings: ' + errorMessage(e));
   }
-  await loadLanguages();
+  await Promise.all([loadLanguages(), loadCharLimit()]);
+}
+
+/**
+ * Fetch the instance's character limit (SPEC §6.1) so the UI shows and enforces
+ * the same bound the server does. Re-callable when the Base URL changes. On
+ * failure the limit is left as "unlimited" — the server still rejects oversized
+ * requests with a 400, which surfaces as an error toast.
+ */
+export async function loadCharLimit(): Promise<void> {
+  try {
+    const fs = await GetFrontendSettings();
+    st.charLimit.set(fs.charLimit > 0 ? fs.charLimit : null);
+  } catch {
+    st.charLimit.set(null);
+  }
 }
 
 /**

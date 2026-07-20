@@ -7,8 +7,13 @@ export const AUTO = 'auto';
 export const SHORTCUT_CTRL_ENTER = 'ctrl_enter';
 export const SHORTCUT_ENTER = 'enter';
 
-/** Hard character limit on the source field (SPEC §6.1). */
-export const CHAR_LIMIT = 2000;
+/**
+ * Instance per-request character limit (SPEC §6.1). Discovered at runtime from
+ * the LibreTranslate instance's /frontend/settings; `null` means the instance
+ * imposes no limit (so the UI shows only a running count). Until the first
+ * fetch resolves it stays `null` — the server still enforces its own bound.
+ */
+export const charLimit = writable<number | null>(null);
 
 export function defaultSettings(): Settings {
   return {
@@ -46,7 +51,10 @@ export const toast = writable<Toast | null>(null);
 
 // --- Derived UI state ---
 export const charCount = derived(sourceText, ($s) => $s.length);
-export const overLimit = derived(sourceText, ($s) => $s.length > CHAR_LIMIT);
+export const overLimit = derived(
+  [sourceText, charLimit],
+  ([$s, $limit]) => $limit != null && $s.length > $limit,
+);
 
 /** Swap is disabled only in Auto mode before a detected language exists (SPEC §5.1). */
 export const swapDisabled = derived(

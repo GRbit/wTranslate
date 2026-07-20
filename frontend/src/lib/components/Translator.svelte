@@ -12,7 +12,7 @@
     charCount,
     overLimit,
     swapDisabled,
-    CHAR_LIMIT,
+    charLimit,
     AUTO,
   } from '../store';
   import {
@@ -113,7 +113,7 @@
         bind:value={$sourceText}
         on:input={() => scheduleLive()}
         on:keydown={onKeydown}
-        maxlength={CHAR_LIMIT}
+        maxlength={$charLimit ?? undefined}
         placeholder="Enter text to translate…"
         spellcheck="false"
       ></textarea>
@@ -140,7 +140,9 @@
     <button class="primary" on:click={() => runTranslate(true)} disabled={$isTranslating}>
       {#if $isTranslating}Translating…{:else}Translate{/if}
     </button>
-    <span class="counter" class:over={$overLimit}>{$charCount}/{CHAR_LIMIT}</span>
+    <span class="counter" class:over={$overLimit} title={$charLimit != null ? `Instance limit: ${$charLimit} characters` : 'This instance has no character limit'}>
+      {#if $charLimit != null}{$charCount}/{$charLimit}{:else}{$charCount}{/if}
+    </span>
     <button class="ghost" on:click={() => settingsOpen.set(true)} title="Settings">
       ⚙ Settings
     </button>

@@ -14,6 +14,18 @@ export namespace libretranslate {
 	        this.confidence = source["confidence"];
 	    }
 	}
+	export class FrontendSettings {
+	    charLimit: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new FrontendSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.charLimit = source["charLimit"];
+	    }
+	}
 	export class Language {
 	    code: string;
 	    name: string;

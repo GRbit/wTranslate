@@ -57,6 +57,15 @@ export async function runTranslate(manual: boolean = false): Promise<void> {
     return; // Exit with no request
   }
 
+  // The instance would reject this with an HTTP 400; fail fast instead of
+  // burning a round-trip. Only nag on manual submits (live mode retries).
+  if (get(st.overLimit)) {
+    if (manual) {
+      st.showToast('error', `Text exceeds this instance's ${get(st.charLimit)}-character limit.`);
+    }
+    return;
+  }
+
   const gen = ++generation;
   st.isTranslating.set(true);
   st.clearToast();
@@ -113,6 +122,8 @@ export function swap(): void {
   const src = get(st.sourceLang);
   const srcText = get(st.sourceText);
   const tgtText = get(st.translatedText);
+  const limit = get(st.charLimit);
+  const clip = (t: string): string => (limit != null ? t.slice(0, limit) : t);
 
   if (src === st.AUTO) {
     const det = get(st.detected);
@@ -122,7 +133,7 @@ export function swap(): void {
     generation++; // an in-flight translation must not overwrite swapped panes
     st.sourceLang.set(prevTarget);
     st.targetLang.set(det.language);
-    st.sourceText.set(tgtText.slice(0, st.CHAR_LIMIT));
+    st.sourceText.set(clip(tgtText));
     st.translatedText.set(srcText);
     st.detected.set(null);
   } else {
@@ -130,7 +141,7 @@ export function swap(): void {
     generation++;
     st.sourceLang.set(tgt);
     st.targetLang.set(src);
-    st.sourceText.set(tgtText.slice(0, st.CHAR_LIMIT));
+    st.sourceText.set(clip(tgtText));
     st.translatedText.set(srcText);
   }
   st.isTranslating.set(false);

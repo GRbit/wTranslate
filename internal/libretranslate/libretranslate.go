@@ -168,6 +168,63 @@ func (s *Service) GetLanguages() ([]Language, error) {
 	return langs, nil
 }
 
+// FrontendSettings mirrors the subset of GET /frontend/settings the UI needs.
+// LibreTranslate reports the instance's per-request character limit here; a
+// value <= 0 means the instance imposes no limit (e.g. for logged-in users).
+type FrontendSettings struct {
+	CharLimit int `json:"charLimit"`
+}
+
+// GetFrontendSettings calls GET {BaseURL}/frontend/settings to discover the
+// instance's real character limit, so the UI can show and enforce the same
+// bound the server would (instead of a hardcoded guess).
+func (s *Service) GetFrontendSettings() (FrontendSettings, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	fullURL := s.baseURL() + "/frontend/settings"
+	s.logf("GET %s apiKey=%s", fullURL, apiKeyLabel(s.apiKey()))
+	start := time.Now()
+
+	requestURL := fullURL
+	if key := s.apiKey(); key != "" {
+		requestURL += "?api_key=" + url.QueryEscape(key)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		s.logf("GET %s: build request failed: %v", fullURL, err)
+		return FrontendSettings{}, fmt.Errorf("invalid Base URL: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", userAgent)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		s.logf("GET %s: request failed after %s: %v", fullURL, time.Since(start), err)
+		return FrontendSettings{}, s.classifyErr(ctx, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.logf("GET %s: read body failed: %v", fullURL, err)
+		return FrontendSettings{}, fmt.Errorf("reading /frontend/settings response: %w", err)
+	}
+	s.logf("GET %s -> %d (%s), %d bytes", fullURL, resp.StatusCode, time.Since(start), len(body))
+
+	if resp.StatusCode != http.StatusOK {
+		return FrontendSettings{}, &APIError{Status: resp.StatusCode, Message: extractErrorMessage(body)}
+	}
+
+	var fs FrontendSettings
+	if err := json.Unmarshal(body, &fs); err != nil {
+		return FrontendSettings{}, fmt.Errorf("unexpected /frontend/settings response (HTTP %d): %s", resp.StatusCode, snippet(body))
+	}
+	s.logf("GET %s: charLimit=%d", fullURL, fs.CharLimit)
+	return fs, nil
+}
+
 // Translate calls POST {BaseURL}/translate with a JSON body (SPEC §4.2).
 func (s *Service) Translate(r TranslateRequest) (TranslateResponse, error) {
 	if strings.TrimSpace(r.Q) == "" {

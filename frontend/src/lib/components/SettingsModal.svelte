@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { settings, settingsOpen, SHORTCUT_CTRL_ENTER, SHORTCUT_ENTER } from '../store';
+  import { settings, settingsOpen, charLimit, SHORTCUT_CTRL_ENTER, SHORTCUT_ENTER } from '../store';
   import { updateSettings } from '../translate';
-  import { loadLanguages } from '../init';
+  import { loadLanguages, loadCharLimit } from '../init';
   import type { Settings } from '../types';
 
   let form: Settings = { ...$settings };
@@ -38,7 +38,8 @@
     });
     // $settings now holds the merged, normalised result from the backend.
     if ($settings.baseUrl !== prevUrl) {
-      await loadLanguages(); // Re-fetch languages on URL change
+      // Re-fetch languages and the instance's character limit on URL change.
+      await Promise.all([loadLanguages(), loadCharLimit()]);
     }
     close();
   }
@@ -96,6 +97,10 @@
                 spellcheck="false"
               />
             </div>
+            <p class="muted">
+              Character limit for this instance:
+              <strong>{$charLimit != null ? `${$charLimit} characters` : 'none (unlimited)'}</strong>
+            </p>
           </div>
         {/if}
       </section>

@@ -53,6 +53,46 @@ func TestGetLanguagesSuccess(t *testing.T) {
 	}
 }
 
+func TestGetFrontendSettings(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/frontend/settings" || r.Method != http.MethodGet {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.URL.Query().Get("api_key"); got != "k" {
+			t.Errorf("api_key query = %q, want %q", got, "k")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"charLimit":2000,"keyRequired":false}`))
+	}))
+	defer srv.Close()
+
+	svc := newSvc(t, srv.URL, "k")
+	fs, err := svc.GetFrontendSettings()
+	if err != nil {
+		t.Fatalf("GetFrontendSettings: %v", err)
+	}
+	if fs.CharLimit != 2000 {
+		t.Errorf("CharLimit = %d, want 2000", fs.CharLimit)
+	}
+}
+
+func TestGetFrontendSettingsUnlimited(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"charLimit":-1}`))
+	}))
+	defer srv.Close()
+
+	svc := newSvc(t, srv.URL, "")
+	fs, err := svc.GetFrontendSettings()
+	if err != nil {
+		t.Fatalf("GetFrontendSettings: %v", err)
+	}
+	if fs.CharLimit != -1 {
+		t.Errorf("CharLimit = %d, want -1 (unlimited)", fs.CharLimit)
+	}
+}
+
 func TestTranslateWithAutoDetect(t *testing.T) {
 	var gotBody map[string]string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
