@@ -1,22 +1,34 @@
 import { get } from 'svelte/store';
 import type { Settings } from './types';
 import * as st from './store';
-import { Translate, SaveSettings, errorMessage } from './api';
+import { Translate, UpdateSettings, errorMessage } from './api';
 
-// Live translation timing (SPEC §3.2.1: debounce 500-800ms, throttle 1–2s).
+// Live translation timing (SPEC §3.2.1): debounce 600ms after the last edit,
+// then at most one request per THROTTLE_MS.
 const DEBOUNCE_MS = 600;
 const THROTTLE_MS = 5000;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let throttleTimer: ReturnType<typeof setTimeout> | null = null;
 let throttleLast = 0;
 
-// Var to cache last success attempt
+// Request generation counter. Every runTranslate bumps it; a response is only
+// applied when its generation is still current, so a stale in-flight request
+// can never overwrite newer state. clearAll/swap bump it too, invalidating
+// whatever is in flight.
+let generation = 0;
+
+// Cache of the last successfully translated (text, source, target) so
+// re-submitting an identical request is a no-op.
 let lastAttempt = {
     text: '',
     source: '',
     target: ''
 };
 
+function resetAttemptCache(): void {
+  lastAttempt = { text: '', source: '', target: '' };
+}
 
 /** Translate the current source text immediately (SPEC §2.1, §4.2). */
 export async function runTranslate(manual: boolean = false): Promise<void> {
@@ -30,9 +42,10 @@ export async function runTranslate(manual: boolean = false): Promise<void> {
     target === lastAttempt.target;
 
   if (!text.trim()) {
+    generation++; // drop any in-flight result
     st.translatedText.set('');
     st.detected.set(null);
-    lastAttempt = { text: '', source: '', target: '' }; // refresh cache
+    resetAttemptCache();
     return;
   }
 
@@ -44,11 +57,12 @@ export async function runTranslate(manual: boolean = false): Promise<void> {
     return; // Exit with no request
   }
 
-
+  const gen = ++generation;
   st.isTranslating.set(true);
   st.clearToast();
   try {
     const res = await Translate({ q: text, source, target });
+    if (gen !== generation) return; // superseded while in flight
     st.translatedText.set(res.translatedText ?? '');
     st.detected.set(res.detectedLanguage ?? null);
     lastAttempt = { text, source, target };
@@ -56,13 +70,14 @@ export async function runTranslate(manual: boolean = false): Promise<void> {
         void copyTranslation();
     }
   } catch (e) {
+    if (gen !== generation) return; // superseded; the newer call owns the UI
     // SPEC §7.4: keep language state, clear output, show error.
     st.showToast('error', errorMessage(e));
     st.translatedText.set('');
     st.detected.set(null);
-    lastAttempt = { text: '', source: '', target: '' }; // drop cache to clear retry on error
+    resetAttemptCache(); // drop cache to allow retry after error
   } finally {
-    st.isTranslating.set(false);
+    if (gen === generation) st.isTranslating.set(false);
   }
 }
 
@@ -70,16 +85,21 @@ export async function runTranslate(manual: boolean = false): Promise<void> {
 export function scheduleLive(): void {
   if (!get(st.settings).liveTranslation) return;
   if (debounceTimer) clearTimeout(debounceTimer);
+  if (throttleTimer) {
+    // A queued throttled run would race the one we are about to schedule.
+    clearTimeout(throttleTimer);
+    throttleTimer = null;
+  }
   debounceTimer = setTimeout(() => {
-    const now = Date.now();
-    const wait = THROTTLE_MS - (now - throttleLast);
+    const wait = THROTTLE_MS - (Date.now() - throttleLast);
     if (wait > 0) {
-      setTimeout(() => {
+      throttleTimer = setTimeout(() => {
+        throttleTimer = null;
         throttleLast = Date.now();
         void runTranslate(false);
       }, wait);
     } else {
-      throttleLast = now;
+      throttleLast = Date.now();
       void runTranslate(false);
     }
   }, DEBOUNCE_MS);
@@ -98,6 +118,8 @@ export function swap(): void {
     const det = get(st.detected);
     if (!det) return; // disabled; no-op guard
     const prevTarget = get(st.targetLang);
+    if (det.language === prevTarget) return; // swap would set source == target
+    generation++; // an in-flight translation must not overwrite swapped panes
     st.sourceLang.set(prevTarget);
     st.targetLang.set(det.language);
     st.sourceText.set(tgtText.slice(0, st.CHAR_LIMIT));
@@ -105,19 +127,24 @@ export function swap(): void {
     st.detected.set(null);
   } else {
     const tgt = get(st.targetLang);
+    generation++;
     st.sourceLang.set(tgt);
     st.targetLang.set(src);
     st.sourceText.set(tgtText.slice(0, st.CHAR_LIMIT));
     st.translatedText.set(srcText);
   }
+  st.isTranslating.set(false);
   void persistSettingsDebounced();
 }
 
 /** Clear input, output and detected language (SPEC §6.3). */
 export function clearAll(): void {
+  generation++; // drop any in-flight result
+  resetAttemptCache(); // retyping the same text must translate again
   st.sourceText.set('');
   st.translatedText.set('');
   st.detected.set(null);
+  st.isTranslating.set(false);
 }
 
 /** Paste buffer into input field */
@@ -154,22 +181,25 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null;
 export function persistSettingsDebounced(): void {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
-    void saveCurrentSettings();
+    void updateSettings({
+      lastSourceLang: get(st.sourceLang),
+      lastTargetLang: get(st.targetLang),
+    });
   }, 400);
 }
 
-/** Write current settings + selected languages to disk via the backend. */
-export async function saveCurrentSettings(next?: Settings): Promise<void> {
-  const cur = next ?? get(st.settings);
-  const merged: Settings = {
-    ...cur,
-    lastSourceLang: get(st.sourceLang),
-    lastTargetLang: get(st.targetLang),
-  };
+/**
+ * Merge a partial settings patch into the persisted settings via the backend
+ * and sync the local store with the authoritative merged result. Returns
+ * whether the save succeeded.
+ */
+export async function updateSettings(patch: Partial<Settings>): Promise<boolean> {
   try {
-    await SaveSettings(merged);
+    const merged = await UpdateSettings(patch);
     st.settings.set(merged);
+    return true;
   } catch (e) {
     st.showToast('error', 'Could not save settings: ' + errorMessage(e));
+    return false;
   }
 }

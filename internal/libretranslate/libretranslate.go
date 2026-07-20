@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"translator/internal/settings"
 )
@@ -123,10 +124,17 @@ func (s *Service) GetLanguages() ([]Language, error) {
 	defer cancel()
 
 	fullURL := s.baseURL() + "/languages"
-	s.logf("GET %s", fullURL)
+	s.logf("GET %s apiKey=%s", fullURL, apiKeyLabel(s.apiKey()))
 	start := time.Now()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	// Some gated instances require the API key even for /languages; a GET has
+	// no body, so it goes in the query string. Only the bare URL is logged.
+	requestURL := fullURL
+	if key := s.apiKey(); key != "" {
+		requestURL += "?api_key=" + url.QueryEscape(key)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		s.logf("GET %s: build request failed: %v", fullURL, err)
 		return nil, fmt.Errorf("invalid Base URL: %w", err)
@@ -242,7 +250,7 @@ func detectedLabel(d *DetectedLanguage) string {
 // SPEC §7.1/§7.2 (timeout vs. unreachable/wrong URL).
 func (s *Service) classifyErr(ctx context.Context, err error) error {
 	if errors.Is(err, context.DeadlineExceeded) || ctx.Err() == context.DeadlineExceeded {
-		return errors.New("Server timeout: LibreTranslate did not respond within 10s. Check the Base URL/API key in Settings.")
+		return fmt.Errorf("Server timeout: LibreTranslate did not respond within %s. Check the Base URL/API key in Settings.", requestTimeout)
 	}
 	// DNS / connection refused / wrong host → "cannot connect".
 	var netErr net.Error
@@ -293,7 +301,12 @@ func snippet(body []byte) string {
 	t := strings.TrimSpace(string(body))
 	t = strings.ReplaceAll(t, "\n", " ")
 	if len(t) > max {
-		return t[:max] + "…"
+		// Back up to a rune boundary so the cut never splits a UTF-8 sequence.
+		cut := max
+		for cut > 0 && !utf8.RuneStart(t[cut]) {
+			cut--
+		}
+		return t[:cut] + "…"
 	}
 	return t
 }

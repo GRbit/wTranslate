@@ -1,7 +1,7 @@
-import { GetSettings, SaveSettings } from '../../wailsjs/go/settings/Service.js';
+import { GetSettings, UpdateSettings } from '../../wailsjs/go/settings/Service.js';
 import { GetLanguages, Translate } from '../../wailsjs/go/libretranslate/Service.js';
 
-export { GetSettings, SaveSettings, GetLanguages, Translate };
+export { GetSettings, UpdateSettings, GetLanguages, Translate };
 
 /**
  * Normalise a value rejected by a Wails binding call into a human-readable

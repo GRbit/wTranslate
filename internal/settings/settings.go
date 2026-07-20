@@ -82,6 +82,10 @@ func (s Settings) normalize() Settings {
 	out.BaseURL = strings.TrimRight(out.BaseURL, "/")
 	if out.BaseURL == "" {
 		out.BaseURL = DefaultBaseURL
+	} else if !strings.Contains(out.BaseURL, "://") {
+		// A bare host like "libretranslate.com" would fail at request time
+		// with a cryptic "invalid Base URL"; assume https.
+		out.BaseURL = "https://" + out.BaseURL
 	}
 	out.APIKey = strings.TrimSpace(out.APIKey)
 	switch out.Shortcut {
@@ -144,7 +148,7 @@ func configDir() (string, error) {
 	cfgDir := filepath.Join(base, appName)
 
 	if EnvDebug() {
-		log.Printf("[settings] config directort %v", cfgDir)
+		log.Printf("[settings] config directory %v", cfgDir)
 	}
 
 	return cfgDir, nil
@@ -206,6 +210,33 @@ func (s *Service) SaveSettings(next Settings) error {
 			s.path, normalized.BaseURL, apiKeyLabel(normalized.APIKey), normalized.LiveTranslation, normalized.Shortcut, normalized.DefaultToAuto, normalized.AutoCopy, normalized.Debug)
 	}
 	return s.writeLocked(normalized)
+}
+
+// UpdateSettings merges a partial patch (JSON field names, camelCase) into the
+// current settings, persists the result and returns it. Fields absent from the
+// patch keep their current values, so callers only send what they changed —
+// e.g. the language selection — without risking overwriting the rest.
+func (s *Service) UpdateSettings(patch map[string]any) (Settings, error) {
+	data, err := json.Marshal(patch)
+	if err != nil {
+		return Settings{}, fmt.Errorf("encode settings patch: %w", err)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	merged := s.cur
+	if err := json.Unmarshal(data, &merged); err != nil {
+		return Settings{}, fmt.Errorf("invalid settings patch: %w", err)
+	}
+	merged = merged.normalize()
+	s.cur = merged
+	if DebugEnabled(merged) {
+		log.Printf("[settings] merging patch (%d fields) into %s: baseURL=%s apiKey=%s liveTranslation=%v shortcut=%s defaultToAuto=%v autoCopy=%v debug=%v",
+			len(patch), s.path, merged.BaseURL, apiKeyLabel(merged.APIKey), merged.LiveTranslation, merged.Shortcut, merged.DefaultToAuto, merged.AutoCopy, merged.Debug)
+	}
+	if err := s.writeLocked(merged); err != nil {
+		return Settings{}, err
+	}
+	return merged, nil
 }
 
 // apiKeyLabel returns a non-sensitive label for logging.

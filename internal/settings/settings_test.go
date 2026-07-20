@@ -96,6 +96,76 @@ func TestSaveNormalizesInvalidValues(t *testing.T) {
 	}
 }
 
+func TestSaveNormalizesSchemelessBaseURL(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("NewServiceWithDir: %v", err)
+	}
+	if err := s.SaveSettings(Settings{BaseURL: "lt.example.com/"}); err != nil {
+		t.Fatalf("SaveSettings: %v", err)
+	}
+	if got := s.GetSettings().BaseURL; got != "https://lt.example.com" {
+		t.Errorf("schemeless BaseURL not normalized: %q", got)
+	}
+}
+
+func TestUpdateSettingsMergesPatch(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("NewServiceWithDir: %v", err)
+	}
+	base := Settings{
+		BaseURL:        "https://lt.example.com",
+		APIKey:         "secret",
+		LastSourceLang: "fr",
+		LastTargetLang: "ru",
+		AutoCopy:       true,
+	}
+	if err := s.SaveSettings(base); err != nil {
+		t.Fatalf("SaveSettings: %v", err)
+	}
+
+	got, err := s.UpdateSettings(map[string]any{
+		"lastSourceLang": "de",
+		"lastTargetLang": "en",
+	})
+	if err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+	if got.LastSourceLang != "de" || got.LastTargetLang != "en" {
+		t.Errorf("patched fields not applied: %+v", got)
+	}
+	if got.BaseURL != base.BaseURL || got.APIKey != "secret" || !got.AutoCopy {
+		t.Errorf("unpatched fields overwritten: %+v", got)
+	}
+
+	// The merge must also survive a reload from disk.
+	s2, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if reloaded := s2.GetSettings(); reloaded != got {
+		t.Errorf("persisted mismatch:\n got  %+v\n want %+v", reloaded, got)
+	}
+}
+
+func TestUpdateSettingsRejectsBadPatch(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewServiceWithDir(dir)
+	if err != nil {
+		t.Fatalf("NewServiceWithDir: %v", err)
+	}
+	before := s.GetSettings()
+	if _, err := s.UpdateSettings(map[string]any{"liveTranslation": "not-a-bool"}); err == nil {
+		t.Error("expected error for type-mismatched patch, got nil")
+	}
+	if after := s.GetSettings(); after != before {
+		t.Errorf("failed patch mutated settings:\n got  %+v\n want %+v", after, before)
+	}
+}
+
 func TestCorruptFileFails(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, configFile), []byte("{not json"), 0o600); err != nil {

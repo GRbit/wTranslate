@@ -13,3 +13,7 @@ export function SaveSettings(arg1) {
 export function Snapshot() {
   return window['go']['settings']['Service']['Snapshot']();
 }
+
+export function UpdateSettings(arg1) {
+  return window['go']['settings']['Service']['UpdateSettings'](arg1);
+}

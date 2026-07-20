@@ -34,12 +34,15 @@
       : 'Auto';
 
   // SPEC §5.4: any explicit language change resets the detected language.
+  // In Live mode the visible translation is now stale, so re-schedule one.
   function onSourceChange(): void {
     $detected = null;
+    scheduleLive();
     void persistSettingsDebounced();
   }
   function onTargetChange(): void {
     $detected = null;
+    scheduleLive();
     void persistSettingsDebounced();
   }
 

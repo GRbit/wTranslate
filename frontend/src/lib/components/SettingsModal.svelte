@@ -1,6 +1,6 @@
 <script lang="ts">
   import { settings, settingsOpen, SHORTCUT_CTRL_ENTER, SHORTCUT_ENTER } from '../store';
-  import { saveCurrentSettings } from '../translate';
+  import { updateSettings } from '../translate';
   import { loadLanguages } from '../init';
   import type { Settings } from '../types';
 
@@ -10,7 +10,7 @@
   // Refresh local form only when open
   let lastOpen = false;
   $: if ($settingsOpen && !lastOpen) {
-    // Инициализация только при переходе из false в true
+    // Initialise only on the false -> true transition
     form = { ...$settings };
     providerOpen = true;
     lastOpen = true;
@@ -24,10 +24,20 @@
   }
 
   async function save(): Promise<void> {
-    const urlChanged = form.baseUrl !== $settings.baseUrl;
-    settings.set(form); // optimistic UI update
-    await saveCurrentSettings(form);
-    if (urlChanged) {
+    const prevUrl = $settings.baseUrl;
+    // Send only the fields this form edits; the backend merges them, so the
+    // language selection (and anything else) is never overwritten from here.
+    await updateSettings({
+      baseUrl: form.baseUrl,
+      apiKey: form.apiKey,
+      liveTranslation: form.liveTranslation,
+      shortcut: form.shortcut,
+      defaultToAuto: form.defaultToAuto,
+      autoCopy: form.autoCopy,
+      debug: form.debug,
+    });
+    // $settings now holds the merged, normalised result from the backend.
+    if ($settings.baseUrl !== prevUrl) {
       await loadLanguages(); // Re-fetch languages on URL change
     }
     close();
@@ -38,7 +48,7 @@
 
 {#if $settingsOpen}
   <div class="overlay">
-    <!-- invisible backdrop layer to close on click/keypress ->
+    <!-- invisible backdrop layer to close on click/keypress -->
     <div
       class="backdrop"
       role="button"
@@ -48,7 +58,7 @@
       on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && close()}
     />
 
-    <!-- Само модальное окно теперь изолировано от обработчиков закрытия -->
+    <!-- The modal itself is isolated from the close handlers -->
     <div class="modal" role="dialog" aria-modal="true">
       <header>
         <h2>Settings</h2>

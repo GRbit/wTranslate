@@ -7,3 +7,5 @@ export function GetSettings():Promise<settings.Settings>;
 export function SaveSettings(arg1:settings.Settings):Promise<void>;
 
 export function Snapshot():Promise<string>;
+
+export function UpdateSettings(arg1:Record<string, any>):Promise<settings.Settings>;
