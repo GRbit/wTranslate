@@ -39,6 +39,8 @@ export const translatedText = writable<string>('');
 export const detected = writable<DetectedLanguage | null>(null);
 export const isTranslating = writable<boolean>(false);
 export const settingsOpen = writable<boolean>(false);
+/** Which window-menu modal is open: the Help or Credits one (null = none). */
+export const infoModal = writable<'help' | 'credits' | null>(null);
 
 // --- Toast / error bar (SPEC §7.3) ---
 export type ToastKind = 'error' | 'info';

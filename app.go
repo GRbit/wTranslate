@@ -6,6 +6,8 @@ import (
 	"log"
 	"sync/atomic"
 
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"translator/internal/libretranslate"
@@ -25,6 +27,10 @@ type App struct {
 	// the frontend confirms via "window:visibility" page-visibility events,
 	// which also covers minimize and the window close button.
 	winVisible atomic.Bool
+
+	// launchTranslateClipboard is set when --translate-clipboard was passed
+	// on the command line; the frontend consumes it once after init.
+	launchTranslateClipboard atomic.Bool
 }
 
 // NewApp constructs the App and its services. If the settings store cannot be
@@ -76,6 +82,14 @@ func (a *App) startup(ctx context.Context) {
 	})
 }
 
+// showWindow makes the window visible and raised, and records that.
+func (a *App) showWindow() {
+	runtime.WindowUnminimise(a.ctx)
+	runtime.WindowShow(a.ctx)
+	a.winVisible.Store(true)
+	a.tray.SetVisible(true)
+}
+
 // toggleWindow is the tray left-click / menu hide-show action.
 func (a *App) toggleWindow() {
 	if a.winVisible.Load() {
@@ -89,10 +103,56 @@ func (a *App) toggleWindow() {
 		if settings.DebugEnabled(a.settings.GetSettings()) {
 			log.Printf("[app] tray toggle: showing window")
 		}
-		runtime.WindowShow(a.ctx)
-		a.winVisible.Store(true)
-		a.tray.SetVisible(true)
+		a.showWindow()
 	}
+}
+
+// onSecondInstance handles a repeated `translator` launch (SingleInstanceLock):
+// bring the existing window to the front; with --translate-clipboard also ask
+// the frontend to translate the clipboard content.
+func (a *App) onSecondInstance(data options.SecondInstanceData) {
+	second := parseArgs(data.Args)
+	log.Printf("[app] second instance launch: args=%v", data.Args)
+	a.showWindow()
+	if second.translateClipboard {
+		if settings.DebugEnabled(a.settings.GetSettings()) {
+			log.Printf("[app] second instance requested clipboard translation")
+		}
+		runtime.EventsEmit(a.ctx, "app:translate-clipboard")
+	}
+}
+
+// appMenu builds the window menu bar: a single Help menu with usage
+// instructions, credits, and Quit at the bottom. The help and credits items
+// open frontend modals via events.
+func (a *App) appMenu() *menu.Menu {
+	root := menu.NewMenu()
+	helpMenu := root.AddSubmenu("Help")
+	helpMenu.AddText("How to run", nil, func(_ *menu.CallbackData) {
+		if settings.DebugEnabled(a.settings.GetSettings()) {
+			log.Printf("[app] menu: help opened")
+		}
+		runtime.EventsEmit(a.ctx, "menu:help")
+	})
+	helpMenu.AddText("Credits", nil, func(_ *menu.CallbackData) {
+		if settings.DebugEnabled(a.settings.GetSettings()) {
+			log.Printf("[app] menu: credits opened")
+		}
+		runtime.EventsEmit(a.ctx, "menu:credits")
+	})
+	helpMenu.AddSeparator()
+	helpMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
+		log.Printf("[app] quit requested from window menu")
+		runtime.Quit(a.ctx)
+	})
+	return root
+}
+
+// TranslateClipboardOnLaunch reports whether --translate-clipboard was passed
+// on the command line. The flag is consumed: subsequent calls return false,
+// so a frontend reload does not re-trigger the translation.
+func (a *App) TranslateClipboardOnLaunch() bool {
+	return a.launchTranslateClipboard.Swap(false)
 }
 
 // shutdown is the Wails OnShutdown hook.

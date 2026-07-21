@@ -3,14 +3,28 @@
   import Toast from './lib/components/Toast.svelte';
   import Translator from './lib/components/Translator.svelte';
   import SettingsModal from './lib/components/SettingsModal.svelte';
+  import InfoModal from './lib/components/InfoModal.svelte';
   import { initApp } from './lib/init';
-  import { EventsEmit, Quit } from '../wailsjs/runtime/runtime.js';
+  import { infoModal } from './lib/store';
+  import { translateClipboard } from './lib/translate';
+  import { TranslateClipboardOnLaunch } from '../wailsjs/go/main/App.js';
+  import { EventsEmit, EventsOn, Quit } from '../wailsjs/runtime/runtime.js';
 
   onMount(() => {
-    void initApp();
+    void (async () => {
+      await initApp();
+      // --translate-clipboard on a fresh start: translate once the languages
+      // and settings are loaded.
+      if (await TranslateClipboardOnLaunch()) void translateClipboard();
+    })();
+    // Window-menu items open modals via events from the backend.
+    EventsOn('menu:help', () => infoModal.set('help'));
+    EventsOn('menu:credits', () => infoModal.set('credits'));
+    // A second `translator --translate-clipboard` launch forwards here.
+    EventsOn('app:translate-clipboard', () => void translateClipboard());
     // Keep the backend's window-visibility flag (used by the tray hide/show
-    // toggle) in sync - fires when the window is hidden via minimize,
-    // WindowHide, or shown again.
+    // toggle) in sync - fires when the window is hidden via the close button
+    // (HideWindowOnClose), minimize, WindowHide, or shown again.
     document.addEventListener('visibilitychange', () =>
       EventsEmit('window:visibility', document.visibilityState === 'visible'),
     );
@@ -27,3 +41,4 @@
 <Toast />
 <Translator />
 <SettingsModal />
+<InfoModal />

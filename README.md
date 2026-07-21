@@ -12,7 +12,28 @@ Insert text, hit Ctrl+Enter to translte. If "auto-copy" option is enabled, resul
 
 The app lives in the system tray: left click the tray icon to hide or show
 the window, right click for a menu with "Hide/Show window" and "Quit".
-Ctrl+Q pressed while the window has focus (not a global hotkey) quits the app.
+Closing the window only hides it to the tray. To quit use the tray menu,
+the window Help menu, or Ctrl+Q while the window has focus (not a global
+hotkey). The window Help menu has the same usage instructions and credits.
+
+## Command line
+
+Only one copy of the app runs at a time (single-instance lock):
+
+```
+translator                        start, or bring the running window to the front
+translator --translate-clipboard  also paste the clipboard into the source box
+                                  and translate it right away
+translator --debug                verbose logging to stderr
+translator --help                 print this help
+```
+
+### Global hotkey (delegated to your DE)
+
+The app does not grab keys system-wide itself. Bind a keyboard shortcut in
+your desktop environment to `translator --translate-clipboard` (e.g. XFCE:
+Settings -> Keyboard -> Application Shortcuts). Copy text anywhere, press
+the shortcut, and the window pops up with the translation.
 
 ![App screenshot](images/app.png)
 ![Settings screenshot](images/settings.png)

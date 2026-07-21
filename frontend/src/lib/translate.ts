@@ -174,6 +174,26 @@ export async function pasteToSource(): Promise<void> {
 }
 
 
+/**
+ * Paste the clipboard into the source box and translate it immediately.
+ * Used by the --translate-clipboard launch flag, both on a fresh start and
+ * when a second instance forwards it (the global-hotkey flow). Runs as a
+ * manual translation, so auto-copy applies to the result.
+ */
+export async function translateClipboard(): Promise<void> {
+  let text = '';
+  try {
+    const { ClipboardGetText } = await import('../../wailsjs/runtime/runtime');
+    text = await ClipboardGetText();
+  } catch {
+    st.showToast('error', 'Could not paste from clipboard');
+    return;
+  }
+  if (!text) return;
+  st.sourceText.set(text);
+  await runTranslate(true);
+}
+
 /** Copy the whole translation to the clipboard (SPEC §6.2). */
 export async function copyTranslation(): Promise<void> {
   const text = get(st.translatedText);
