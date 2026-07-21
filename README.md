@@ -10,6 +10,10 @@ Contributions are welcome!
 
 Insert text, hit Ctrl+Enter to translte. If "auto-copy" option is enabled, result will be copied to paste buffer instantly.
 
+The app lives in the system tray: left click the tray icon to hide or show
+the window, right click for a menu with "Hide/Show window" and "Quit".
+Ctrl+Q pressed while the window has focus (not a global hotkey) quits the app.
+
 ![App screenshot](images/app.png)
 ![Settings screenshot](images/settings.png)
 
@@ -32,6 +36,62 @@ wails dev      # hot-reload dev app
 ## Production build
 ```bash
 wails build    # outputs build/bin/translator
+```
+
+All icons (app/taskbar/tray — the same capital-T image) are rendered at
+runtime by the `icons` package — no image files are committed. A pre-build
+hook in `wails.json` writes the generated PNGs to `build/icons/` (hicolor
+set for `make install`) and `build/appicon.png` (wails packaging) on every
+build; both paths are gitignored build artifacts.
+
+## Desktop integration (optional)
+
+The app sets its window icon, which titlebars use — but most taskbar/dock
+plugins instead resolve icons by matching the window's WM_CLASS
+(`translator`) against a `.desktop` entry and looking the icon up in the
+icon theme at small fixed sizes. The app deliberately does **not** install
+anything into your home directory; run `make install` (or `make uninstall`)
+to apply exactly the steps below, or run them manually from the repository
+root:
+
+```sh
+# the binary (build first: wails build)
+mkdir -p ~/.local/bin
+cp build/bin/translator ~/.local/bin/translator
+
+# icons for the hicolor theme (rendered into build/icons/ by the build)
+for size in 16 22 24 32 48 64 128 256 512; do
+  mkdir -p ~/.local/share/icons/hicolor/${size}x${size}/apps
+  cp build/icons/${size}.png ~/.local/share/icons/hicolor/${size}x${size}/apps/translator.png
+done
+
+# application menu / taskbar entry
+mkdir -p ~/.local/share/applications
+cat > ~/.local/share/applications/translator.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=LibreTranslate Translator
+Comment=Desktop client for LibreTranslate
+Exec=$HOME/.local/bin/translator
+Icon=translator
+Terminal=false
+Categories=Utility;Office;
+StartupWMClass=translator
+EOF
+```
+
+After a rebuild, refresh the installed binary with the same `cp`.
+
+If `~/.local/share/icons/hicolor/icon-theme.cache` exists on your system,
+refresh it too (a stale cache hides new icons):
+`gtk-update-icon-cache --force --ignore-theme-index ~/.local/share/icons/hicolor`
+
+To undo everything:
+
+```sh
+rm -f ~/.local/bin/translator
+rm -f ~/.local/share/applications/translator.desktop
+rm -f ~/.local/share/icons/hicolor/*/apps/translator.png
 ```
 
 ## Regenerate frontend bindings
@@ -63,6 +123,8 @@ logged. Logs go to stderr (visible in the terminal / `wails dev` console).
 ## Project layout
 ```
 main.go, app.go        Wails entry + App lifecycle (binds 3 structs)
+tray.go                System tray (hide/show toggle, quit menu)
+icons/                 Code-rendered icons + gen subcommand (pre-build hook)
 wails.json             Wails project config
 internal/settings/     Settings store (OS config dir, JSON, atomic writes)
 internal/libretranslate/  LibreTranslate client (languages/translate, timeouts, errors)

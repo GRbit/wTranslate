@@ -9,6 +9,9 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
+
+	"translator/icons"
 )
 
 //go:embed all:frontend/dist
@@ -30,6 +33,14 @@ func main() {
 		Height:    640,
 		MinWidth:  640,
 		MinHeight: 460,
+		Linux: &linux.Options{
+			Icon:        icons.App(512), // window manager / taskbar icon
+			ProgramName: "translator",   // WM_CLASS, matched by the .desktop StartupWMClass
+			// Explicit Never preserves the default that applies when
+			// options.Linux is nil (wails issue 2977) - adding the icon
+			// must not silently change the GPU policy.
+			WebviewGpuPolicy: linux.WebviewGpuPolicyNever,
+		},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
