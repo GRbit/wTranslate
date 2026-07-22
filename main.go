@@ -36,9 +36,9 @@ Single instance:
   existing window to the front instead of starting a second instance.
 
 Global hotkey:
-  Bind a keyboard shortcut in your desktop environment to:
+  In your desktop environment's keyboard shortcut settings, bind a
+  shortcut to:
       translator --translate-clipboard
-  e.g. XFCE: Settings -> Keyboard -> Application Shortcuts -> Add.
   Copy some text, press the shortcut, and the translation window pops up
   with the result.
 `

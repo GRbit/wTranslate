@@ -11,7 +11,7 @@ export const SHORTCUT_ENTER = 'enter';
  * Instance per-request character limit (SPEC §6.1). Discovered at runtime from
  * the LibreTranslate instance's /frontend/settings; `null` means the instance
  * imposes no limit (so the UI shows only a running count). Until the first
- * fetch resolves it stays `null` — the server still enforces its own bound.
+ * fetch resolves it stays `null`: the server still enforces its own bound.
  */
 export const charLimit = writable<number | null>(null);
 

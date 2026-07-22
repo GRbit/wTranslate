@@ -35,7 +35,7 @@ export async function initApp(): Promise<void> {
 /**
  * Fetch the instance's character limit (SPEC §6.1) so the UI shows and enforces
  * the same bound the server does. Re-callable when the Base URL changes. On
- * failure the limit is left as "unlimited" — the server still rejects oversized
+ * failure the limit is left as "unlimited": the server still rejects oversized
  * requests with a 400, which surfaces as an error toast.
  */
 export async function loadCharLimit(): Promise<void> {
@@ -71,7 +71,7 @@ export async function loadLanguages(): Promise<void> {
   } catch (e) {
     st.showToast(
       'error',
-      'Could not load languages: ' + errorMessage(e) + ' — check the Base URL in Settings.',
+      'Could not load languages: ' + errorMessage(e) + ' - check the Base URL in Settings.',
     );
   }
 }

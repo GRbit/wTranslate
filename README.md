@@ -31,9 +31,9 @@ translator --help                 print this help
 ### Global hotkey (delegated to your DE)
 
 The app does not grab keys system-wide itself. Bind a keyboard shortcut in
-your desktop environment to `translator --translate-clipboard` (e.g. XFCE:
-Settings -> Keyboard -> Application Shortcuts). Copy text anywhere, press
-the shortcut, and the window pops up with the translation.
+your desktop environment's keyboard settings to
+`translator --translate-clipboard`. Copy text anywhere, press the shortcut,
+and the window pops up with the translation.
 
 ![App screenshot](images/app.png)
 ![Settings screenshot](images/settings.png)

@@ -77,14 +77,14 @@
         <section>
           <h3>Global hotkey</h3>
           <p>
-            The app does not grab keys system-wide itself. Instead, bind a
-            keyboard shortcut in your desktop environment to:
+            The app does not grab keys system-wide itself. Instead, in your
+            desktop environment's keyboard shortcut settings, bind a shortcut
+            to:
           </p>
           <p><code>translator --translate-clipboard</code></p>
           <p>
-            For example in XFCE: Settings &gt; Keyboard &gt; Application
-            Shortcuts &gt; Add. Then copy some text anywhere, press the
-            shortcut, and the window pops up with the translation.
+            Then copy some text anywhere, press the shortcut, and the window
+            pops up with the translation.
           </p>
         </section>
       {:else}
