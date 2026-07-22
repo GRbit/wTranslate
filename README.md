@@ -28,11 +28,11 @@ translator --debug                verbose logging to stderr
 translator --help                 print this help
 ```
 
-### Global hotkey (delegated to your DE)
+### Global hotkey
 
 The app does not grab keys system-wide itself. Bind a keyboard shortcut in
 your desktop environment's keyboard settings to
-`translator --translate-clipboard`. Copy text anywhere, press the shortcut,
+`translator --translate-clipboard`. Copy text to your clipboard, press the shortcut,
 and the window pops up with the translation.
 
 ![App screenshot](images/app.png)
@@ -65,7 +65,14 @@ hook in `wails.json` writes the generated PNGs to `build/icons/` (hicolor
 set for `make install`) and `build/appicon.png` (wails packaging) on every
 build; both paths are gitignored build artifacts.
 
-## Desktop integration (optional)
+
+## Settings
+Stored at `<os.UserConfigDir>/LibreTranslateTranslator/settings.json`
+(override with `LIBRETRANSLATE_CONFIG_DIR`). Defaults: Base URL
+`https://libretranslate.com`, empty API key, Default-to-Auto on, Live
+Translation off.
+
+## Desktop integration/installation (optional)
 
 The app sets its window icon, which titlebars use — but most taskbar/dock
 plugins instead resolve icons by matching the window's WM_CLASS
@@ -141,21 +148,3 @@ LIBRETRANSLATE_DEBUG=1 wails dev   # env var
 or toggle **Settings → Developer → Debug logging**. The API key is never
 logged. Logs go to stderr (visible in the terminal / `wails dev` console).
 
-## Project layout
-```
-main.go, app.go        Wails entry + App lifecycle (binds 3 structs)
-tray.go                System tray (hide/show toggle, quit menu)
-icons/                 Code-rendered icons + gen subcommand (pre-build hook)
-wails.json             Wails project config
-internal/settings/     Settings store (OS config dir, JSON, atomic writes)
-internal/libretranslate/  LibreTranslate client (languages/translate, timeouts, errors)
-frontend/src/lib/      store, api, translate/swap logic, init, types
-frontend/src/lib/components/  Translator, SettingsModal, Toast
-frontend/wailsjs/go/   generated Wails bindings (do not edit)
-```
-
-## Settings
-Stored at `<os.UserConfigDir>/LibreTranslateTranslator/settings.json`
-(override with `LIBRETRANSLATE_CONFIG_DIR`). Defaults: Base URL
-`https://libretranslate.com`, empty API key, Default-to-Auto on, Live
-Translation off.
