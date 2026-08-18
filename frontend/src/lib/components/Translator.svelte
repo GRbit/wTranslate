@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+  import { normalizeScroll } from '../scroll';
   import {
     settings,
     languages,
@@ -32,6 +34,20 @@
     $sourceLang === AUTO && $detected
       ? `Auto (${langName($detected.language)} – ${Math.round($detected.confidence)}%)`
       : 'Auto';
+
+  // WebKitGTK keeps the stale scrollTop when a textarea's value is replaced
+  // with shorter text, leaving the pane blank with no scrollbar and wheel
+  // input dead. Both panes are affected: the output on every translation,
+  // the input on swap/clear/paste. After each change, once the DOM has the
+  // new value, pull the scroll back into range.
+  let sourceEl: HTMLTextAreaElement;
+  let translatedEl: HTMLTextAreaElement;
+  async function onPaneTextChange(el: HTMLTextAreaElement, _text: string): Promise<void> {
+    await tick();
+    if (el) normalizeScroll(el);
+  }
+  $: void onPaneTextChange(sourceEl, $sourceText);
+  $: void onPaneTextChange(translatedEl, $translatedText);
 
   // SPEC §5.4: any explicit language change resets the detected language.
   // In Live mode the visible translation is now stale, so re-schedule one.
@@ -110,6 +126,7 @@
   <section class="panes">
     <div class="pane">
       <textarea
+        bind:this={sourceEl}
         bind:value={$sourceText}
         on:input={() => scheduleLive()}
         on:keydown={onKeydown}
@@ -125,6 +142,7 @@
 
     <div class="pane">
       <textarea
+        bind:this={translatedEl}
         bind:value={$translatedText}
         readonly
         placeholder="Translation"
